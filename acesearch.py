@@ -49,6 +49,16 @@ if outputfolder != '':
         os.makedirs(outputfolder) #Проверка наличия и создание папки для плейлистов
 
 
+################################
+
+def test_connection(test_url):
+    try:
+        urllib.request.urlopen(test_url, timeout=1)
+        return True
+    except urllib.request.URLError as err:
+        print('Адрес ' + test_url + ' недоступен')
+        return False
+
 #####Парсинг JSON-файла#########
 
 url_ace_json = 'https://search.acestream.net/all?api_version=1.0&api_key=test_api_key'
@@ -84,6 +94,8 @@ print("Найдено каналов: " + str(len(name)))
 
 #####Создание плейлистов########
 
+int_serv_work = test_connection('http://' + acestreamserveradressport + '/server/api/')
+
 if createplaylistall == '1':
     output = open(outputfolder + playlistallfilename, 'w', encoding='utf-8')
     output.write('#EXTM3U\n')
@@ -98,22 +110,22 @@ print("Начинаем обработку найденных каналов.")
 while n != k:
     print(name[n])
     if createplaylistall == '1':
-        if usecontentid == '1':
+        if usecontentid == '1' and int_serv_work:
             content_id_gen_url = 'http://' + acestreamserveradressport + '/server/api/?method=get_content_id&infohash=' + infohash[n]
             result = json.loads(urllib.request.urlopen(content_id_gen_url).read())
             output.write('#EXTINF:-1, group-title="' + ','.join(cat[n]) + '" ,' +  name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?id=' + result['result']['content_id'] + '&.mp4\n')
         else:
-            output.write('#EXTINF:-1, group-title="' + cat[n] + ',' + name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?infohash=' + infohash[n] + '\n')
+            output.write('#EXTINF:-1, group-title="' + ','.join(cat[n]) + ',' + name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?infohash=' + infohash[n] + '\n')
             
     if createfavorite == '1':
         for i in number_of_favorite_channels:
             if n == i:
-                if usecontentid == '1':
+                if usecontentid == '1' and int_serv_work:
                     content_id_gen_url = 'http://' + acestreamserveradressport + '/server/api/?method=get_content_id&infohash=' + infohash[n]
                     result = json.loads(urllib.request.urlopen(content_id_gen_url).read())
                     output.write('#EXTINF:-1, group-title="' + ','.join(cat[n]) + '" ,' +  name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?id=' + result['result']['content_id'] + '&.mp4\n')
                 else:
-                    output_favorite.write('#EXTINF:-1 group-title="' + cat[n] + '" ,' + name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?infohash=' + infohash[n] + '\n')
+                    output_favorite.write('#EXTINF:-1 group-title="' + ','.join(cat[n]) + '" ,' + name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?infohash=' + infohash[n] + '\n')
             
     n = n + 1
 
