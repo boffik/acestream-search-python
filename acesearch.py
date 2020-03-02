@@ -1,7 +1,7 @@
 # coding=utf-8
 # -*- coding: utf-8 -*-
 
-import urllib.request, urllib.parse, urllib.error, os, configparser, ssl, json
+import urllib.request, urllib.parse, urllib.error, os, configparser, ssl, json, uuid
 
 def createConfig(path): #Создание стандартного конфиг файла
 
@@ -59,38 +59,51 @@ def test_connection(test_url):
         print('Адрес ' + test_url + ' недоступен')
         return False
 
+################################
+
+
+def sort_dict(dict):
+    sorted_pairs = [(k, dict[k]) for k in sorted(dict.keys(), key=dict.get, reverse=False)]
+    return sorted_pairs
+
+
 #####Парсинг JSON-файла#########
 
 url_ace_json = 'https://search.acestream.net/all?api_version=1.0&api_key=test_api_key'
 gcontext = ssl.SSLContext()  # Only for gangstars
-ace_req = urllib.request.urlopen(url_ace_json, context=gcontext).read()
-ace_json = ace_req.decode() #Долбаный юникод...
-ace_json_str_split = json.loads(ace_json)
+ace_json = urllib.request.urlopen(url_ace_json, context=gcontext).read().decode()
+ace_json_items = json.loads(ace_json)
 
-k = 0 #Счетчик
-name = [] #Список названий каналов
-cat = [] #Список названий категорий каналов
-infohash = [] #Список инфохешей каналов
-number_of_favorite_channels = [] #Список порядковых номеров каналов отобраных в избранное 
+name = {} #Словарь названий каналов
+cat = {} #Словарь названий категорий каналов
+infohash = {} #Словарь инфохешей каналов
 
-for string in ace_json_str_split:
-    name.append(string['name'].strip())
+favorite_channels = [] #Список порядковых номеров каналов отобраных в избранное
 
-    if 'categories' in string:
-        cat.append(string['categories'])
+for item in ace_json_items:
+    item_name = item['name'].strip()
+    item_uuid = uuid.uuid5(uuid.NAMESPACE_X500, item_name)
+
+ #   print(item_uuid , item_name)
+    name.update({item_uuid : item_name})
+
+    if 'categories' in item:
+        cat.update({item_uuid : item['categories']})
     else:
-        cat.append('')
+        cat.update({item_uuid : ''})
 
-    infohash.append(string['infohash'])
+    infohash.update({item_uuid : item['infohash']})
+
     if createfavorite == '1' or createfavoriteproxy == '1':
         for channel in favoritechannales_split:
-            if name[k].find(channel) != -1:
-                number_of_favorite_channels.append(k)
-    k = k + 1
+            if item_name.find(channel) != -1:
+                favorite_channels.append(item_uuid)
 
 print("Найдено каналов: " + str(len(name)))
 
 ################################
+
+s_dict = sort_dict(name)
 
 #####Создание плейлистов########
 
@@ -107,53 +120,43 @@ n = 0
 
 print("Начинаем обработку найденных каналов.")
 
-while n != k:
-    print(name[n])
+print("Заполняем общий плейлист")
+for n, k in s_dict:
     if createplaylistall == '1':
         if usecontentid == '1' and int_serv_work:
             content_id_gen_url = 'http://' + acestreamserveradressport + '/server/api/?method=get_content_id&infohash=' + infohash[n]
-            result = json.loads(urllib.request.urlopen(content_id_gen_url).read())
-            output.write('#EXTINF:-1, group-title="' + ','.join(cat[n]) + '" ,' +  name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?id=' + result['result']['content_id'] + '&.mp4\n')
+            content_id = json.loads(urllib.request.urlopen(content_id_gen_url).read())['result']['content_id']
+            output.write('#EXTINF:-1, group-title="' + ','.join(cat[n]) + '" ,' +  name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?id=' + content_id + '&.mp4\n')
         else:
-            output.write('#EXTINF:-1, group-title="' + ','.join(cat[n]) + ',' + name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?infohash=' + infohash[n] + '\n')
-            
-    if createfavorite == '1':
-        for i in number_of_favorite_channels:
-            if n == i:
-                if usecontentid == '1' and int_serv_work:
-                    content_id_gen_url = 'http://' + acestreamserveradressport + '/server/api/?method=get_content_id&infohash=' + infohash[n]
-                    result = json.loads(urllib.request.urlopen(content_id_gen_url).read())
-                    output.write('#EXTINF:-1, group-title="' + ','.join(cat[n]) + '" ,' +  name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?id=' + result['result']['content_id'] + '&.mp4\n')
-                else:
-                    output_favorite.write('#EXTINF:-1 group-title="' + ','.join(cat[n]) + '" ,' + name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?infohash=' + infohash[n] + '\n')
-            
-    n = n + 1
+            output.write('#EXTINF:-1, group-title="' + ','.join(cat[n]) + '" ,' + name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?infohash=' + infohash[n] + '\n')
 
+output.close()
+print("Плейлист всех каналов подготовлен.")
+
+if createfavorite == '1':
+    print("Заполняем плейлист избранных каналов")
+    for n in favorite_channels:
+        if usecontentid == '1' and int_serv_work:
+            content_id_gen_url = 'http://' + acestreamserveradressport + '/server/api/?method=get_content_id&infohash=' + infohash[n]
+            content_id = json.loads(urllib.request.urlopen(content_id_gen_url).read())['result']['content_id']
+            output_favorite.write('#EXTINF:-1, group-title="' + ','.join(cat[n]) + '" ,' +  name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?id=' + content_id + '&.mp4\n')
+        else:
+            output_favorite.write('#EXTINF:-1 group-title="' + ','.join(cat[n]) + '" ,' + name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?infohash=' + infohash[n] + '\n')
+
+output_favorite.close()
+print("Плейлист избранных каналов подготовлен.")
 #####Отдельно создание прокси плейлиста#####
 
 if createfavoriteproxy == '1':
-    content_id = []
-    k = 0
-    for n in number_of_favorite_channels:
-        content_id_gen_url = 'http://' + acestreamserveradressport + '/server/api/?method=get_content_id&infohash=' + infohash[n]
-        content_id.append(str(urllib.request.urlopen(content_id_gen_url).read())[29:])
-        content_id[k] = content_id[k][:40]
-        print(content_id[k])
-        k = k + 1
-        
+
     outputproxy = open(outputfolder + playlistfavoriteproxyfilename, 'w', encoding='utf-8')
     outputproxy.write('#EXTM3U\n')
-    n = 0
-    for id in content_id:
-        outputproxy.write('#EXTINF:-1 group-title="' + cat[number_of_favorite_channels[n]] + ',' + name[number_of_favorite_channels[n]] + '\n' + 'http://' + aceproxyserveradressport + '/pid/' + str(id) + '/stream.mp4' + '\n')
-        n = n + 1
-    outputproxy.close()
-	
+    print("Заполняем плейлист прокси")
+    for n in favorite_channels:
+        content_id_gen_url = 'http://' + acestreamserveradressport + '/server/api/?method=get_content_id&infohash=' + infohash[n]
+        content_id = json.loads(urllib.request.urlopen(content_id_gen_url).read())['result']['content_id']
+        outputproxy.write('#EXTINF:-1 group-title="' + ','.join(cat[n]) + '" ,' + name[n] + '\n' + 'http://' + aceproxyserveradressport + '/pid/' + str(content_id) + '/stream.mp4' + '\n')
+
+outputproxy.close()
+print("Плейлист каналов для прокси подготовлен.")
 ############################################
-	
-if createplaylistall == '1':
-    output.close()
-    print("Список всех каналов подготовлен.")
-if createfavorite == '1':
-    output_favorite.close()
-    print("Список избранных каналов подготовлен.")
