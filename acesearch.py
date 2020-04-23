@@ -18,6 +18,7 @@ def createConfig(path): #Создание стандартного конфиг 
     config.set("Settings", "createfavoriteproxy", "0") #Создание плейлиста с избранными каналами с использованием proxy сервера от Pepsik
     config.set("Settings", "playlistfavoriteproxyfilename", "Favorite_proxy.m3u") #Название файла плейлиста с избранными каналами с использованием proxy сервера от Pepsik
     config.set("Settings", "favoritechannels", "Discovery,Eurosport,Моя Планета") #Ключевые слова для подбора каналов в плейлист избранного (регистр имеет значение)
+    config.set("Settings", "excludewords", "(KZ),Brasil,Fashion,MADRID,alfabass") #Ключевые слова для исключения каналов из плейлиста избранного (регистр имеет значение)
     config.set("Settings", "contentid", "1") #Использовать content_id в плейлистах, иначе будут infohash
     
     with open(path, "w", encoding='utf-8') as config_file:
@@ -40,9 +41,10 @@ playlistfavoritefilename = config.get("Settings", "playlistfavoritefilename")
 createfavoriteproxy = config.get("Settings", "createfavoriteproxy")
 playlistfavoriteproxyfilename = config.get("Settings", "playlistfavoriteproxyfilename")
 favoritechannales = config.get("Settings", "favoritechannels")
+excludewords = config.get("Settings", "excludewords")
 usecontentid = config.get("Settings", "contentid")
 favoritechannales_split = favoritechannales.split(',')
-
+excludewords_split = excludewords.split(',')
 ################################
 
 if outputfolder != '':
@@ -78,8 +80,7 @@ ace_json_items = json.loads(ace_json)
 name = {} #Словарь названий каналов
 cat = {} #Словарь названий категорий каналов
 infohash = {} #Словарь инфохешей каналов
-
-favorite_channels = [] #Список порядковых номеров каналов отобраных в избранное
+favorite_channels = {} #Список порядковых номеров каналов отобраных в избранное
 
 for item in ace_json_items:
     item_name = item['name'].strip()
@@ -97,8 +98,14 @@ for item in ace_json_items:
 
     if createfavorite == '1' or createfavoriteproxy == '1':
         for channel in favoritechannales_split:
-            if item_name.find(channel) != -1:
-                favorite_channels.append(item_uuid)
+            excluding = False
+            for excludeword in excludewords_split:
+                if item_name.find(excludeword) != -1:
+                    excluding = True
+                    break
+                
+            if item_name.find(channel) != -1 and excluding == False:
+                favorite_channels.update({item_uuid : item_name})
 
 print("Найдено каналов: " + str(len(name)))
 
@@ -106,6 +113,9 @@ print("Найдено каналов: " + str(len(name)))
 
 s_dict = sort_dict(name)
 
+if createfavorite == '1' or createfavoriteproxy == '1':
+    favorite_channels = sort_dict(favorite_channels)
+    
 #####Создание плейлистов########
 
 int_serv_work = test_connection('http://' + acestreamserveradressport + '/server/api/')
@@ -136,7 +146,7 @@ print("Плейлист всех каналов подготовлен.")
 
 if createfavorite == '1':
     print("Заполняем плейлист избранных каналов")
-    for n in favorite_channels:
+    for n, k in favorite_channels:
         if usecontentid == '1' and int_serv_work:
             content_id_gen_url = 'http://' + acestreamserveradressport + '/server/api/?method=get_content_id&infohash=' + infohash[n]
             content_id = json.loads(urllib.request.urlopen(content_id_gen_url).read())['result']['content_id']
@@ -158,6 +168,7 @@ if createfavoriteproxy == '1':
         content_id = json.loads(urllib.request.urlopen(content_id_gen_url).read())['result']['content_id']
         outputproxy.write('#EXTINF:-1 group-title="' + ','.join(cat[n]) + '" ,' + name[n] + '\n' + 'http://' + aceproxyserveradressport + '/pid/' + str(content_id) + '/stream.mp4' + '\n')
 
-outputproxy.close()
+    outputproxy.close()
+    
 print("Плейлист каналов для прокси подготовлен.")
 ############################################
