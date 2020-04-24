@@ -85,8 +85,6 @@ favorite_channels = {} #Список порядковых номеров кан�
 for item in ace_json_items:
     item_name = item['name'].strip()
     item_uuid = uuid.uuid5(uuid.NAMESPACE_X500, item_name)
-
- #   print(item_uuid , item_name)
     name.update({item_uuid : item_name})
 
     if 'categories' in item:
@@ -126,8 +124,9 @@ if createplaylistall == '1':
 if createfavorite == '1':
     output_favorite = open(outputfolder + playlistfavoritefilename, 'w', encoding='utf-8')
     output_favorite.write('#EXT3U\n')
-
-n = 0
+if createfavoriteproxy == '1':
+    outputproxy = open(outputfolder + playlistfavoriteproxyfilename, 'w', encoding='utf-8')
+    outputproxy.write('#EXTM3U\n')
 
 print("Начинаем обработку найденных каналов.")
 
@@ -154,14 +153,12 @@ if createfavorite == '1':
         else:
             output_favorite.write('#EXTINF:-1 group-title="' + ','.join(cat[n]) + '" ,' + name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?infohash=' + infohash[n] + '\n')
 
-output_favorite.close()
-print("Плейлист избранных каналов подготовлен: " + str(len(favorite_channels)) + " каналов.")
+    output_favorite.close()
+    print("Плейлист избранных каналов подготовлен: " + str(len(favorite_channels)) + " каналов.")
 #####Отдельно создание прокси плейлиста#####
 
 if createfavoriteproxy == '1':
 
-    outputproxy = open(outputfolder + playlistfavoriteproxyfilename, 'w', encoding='utf-8')
-    outputproxy.write('#EXTM3U\n')
     print("Заполняем плейлист прокси")
     for n in favorite_channels:
         content_id_gen_url = 'http://' + acestreamserveradressport + '/server/api/?method=get_content_id&infohash=' + infohash[n]
