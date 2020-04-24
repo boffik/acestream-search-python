@@ -107,7 +107,7 @@ for item in ace_json_items:
             if item_name.find(channel) != -1 and excluding == False:
                 favorite_channels.update({item_uuid : item_name})
 
-print("Найдено каналов: " + str(len(name)))
+print("Найдено всего каналов: " + str(len(name)))
 
 ################################
 
@@ -155,7 +155,7 @@ if createfavorite == '1':
             output_favorite.write('#EXTINF:-1 group-title="' + ','.join(cat[n]) + '" ,' + name[n] + '\n' + 'http://' + acestreamserveradressport + '/ace/getstream?infohash=' + infohash[n] + '\n')
 
 output_favorite.close()
-print("Плейлист избранных каналов подготовлен.")
+print("Плейлист избранных каналов подготовлен: " + str(len(favorite_channels)) + " каналов.")
 #####Отдельно создание прокси плейлиста#####
 
 if createfavoriteproxy == '1':
@@ -170,5 +170,5 @@ if createfavoriteproxy == '1':
 
     outputproxy.close()
     
-print("Плейлист каналов для прокси подготовлен.")
+    print("Плейлист каналов для прокси подготовлен: " + str(len(favorite_channels)) + " каналов.")
 ############################################
